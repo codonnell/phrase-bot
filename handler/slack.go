@@ -35,7 +35,7 @@ func (h SlackHandler) HandleInsultJira(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if s.Text != "insult jira" && s.Command != "/pf2" {
+	if s.Text != "insult jira" {
 		response := &Response{Text: "make sure you type \"insult jira\" after the /pf2 command"}
 		return c.JSON(http.StatusOK, response)
 	}
