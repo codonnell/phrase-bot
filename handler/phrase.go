@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"phrase_bot/data"
+	"phrase_bot/types"
 	"phrase_bot/view"
 	"strconv"
 	"strings"
@@ -16,11 +17,18 @@ type PhraseHandler struct {
 }
 
 func (h PhraseHandler) HandlePhraseShow(c echo.Context) error {
-	phrases, err := data.GetAllPhrases(h.Pool)
+	search := c.QueryParam("search")
+	var phrases *[]types.Phrase
+	var err error
+	if search != "" {
+		phrases, err = data.SearchPhrases(h.Pool, search)
+	} else {
+		phrases, err = data.GetAllPhrases(h.Pool)
+	}
 	if err != nil {
 		return err
 	}
-	return c.Render(http.StatusOK, "show_phrases", view.ShowPhrases{PhraseError: "", Phrases: *phrases})
+	return c.Render(http.StatusOK, "show_phrases", view.ShowPhrases{PhraseError: "", Phrases: *phrases, Search: search})
 }
 
 func (h PhraseHandler) HandleCreatePhrase(c echo.Context) error {
@@ -36,7 +44,7 @@ func (h PhraseHandler) HandleCreatePhrase(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.Redirect(http.StatusFound, "/phrase")
+	return c.Redirect(http.StatusFound, "/phrase/")
 }
 
 func (h PhraseHandler) HandleDeletePhrase(c echo.Context) error {
@@ -48,5 +56,5 @@ func (h PhraseHandler) HandleDeletePhrase(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.Redirect(http.StatusFound, "/phrase")
+	return c.Redirect(http.StatusFound, "/phrase/")
 }

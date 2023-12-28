@@ -10,6 +10,7 @@ import (
 
 type ShowPhrases struct {
 	PhraseError string
+	Search      string
 	Phrases     []types.Phrase
 }
 
