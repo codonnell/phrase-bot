@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/subtle"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,66 +17,71 @@ import (
 	"github.com/slack-go/slack"
 )
 
-func main() {
-	log.Println("Starting phrase bot")
-	godotenv.Load()
-
-	basicAuthUser := os.Getenv("BASIC_AUTH_USER")
-	basicAuthPass := os.Getenv("BASIC_AUTH_PASS")
-
-	port := os.Getenv("PORT")
-	slackToken := os.Getenv("SLACK_TOKEN")
-	slackSigningSecret := os.Getenv("SLACK_SIGNING_SECRET")
-	client := slack.New(slackToken, slack.OptionDebug(true))
-	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
+func setupDB(config Config) (*pgxpool.Pool, error) {
+	dbpool, err := pgxpool.New(context.Background(), config.DatabaseUrl)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create dbpoolection pool: %v\n", err)
+		log.Fatalf("Unable to create dbpoolection pool: %v\n", err)
 		os.Exit(1)
 	}
-	defer dbpool.Close()
 
 	createTable := `create table if not exists phrase (id serial primary key, phrase text not null, inserted_at timestamptz not null default now())`
 	_, err = dbpool.Exec(context.Background(), createTable)
 	if err != nil {
 		log.Fatal("create table error", err)
-		return
+		return nil, err
 	}
 	_, err = dbpool.Exec(context.Background(), "create index if not exists phrase_search on phrase using gin (to_tsvector('english', phrase))")
 	if err != nil {
 		log.Fatal("create index error", err)
-		return
+		return nil, err
 	}
 	_, err = dbpool.Exec(context.Background(), "delete from phrase")
 	if err != nil {
 		log.Fatal("Deletion error", err)
+		return nil, err
 	}
 	_, err = dbpool.Exec(context.Background(), "insert into phrase (phrase) values ($1)", "JIRA is bad")
 	if err != nil {
 		log.Fatal("Insertion error", err)
+		return nil, err
 	}
 	_, err = dbpool.Exec(context.Background(), "insert into phrase (phrase) values ($1)", "not matching")
 	if err != nil {
 		log.Fatal("Insertion error", err)
+		return nil, err
 	}
 	phrases, err := data.SearchPhrases(dbpool, "JIRA")
 	if err != nil {
 		log.Fatal("Query error", err)
+		return nil, err
 	}
 	for _, phrase := range *phrases {
 		log.Println("phrase:", phrase.Id, "phrase:", phrase.Phrase)
 	}
 	log.Println("All done!")
+	return dbpool, nil
+}
 
+type Config struct {
+	BasicAuthUser      string
+	BasicAuthPass      string
+	Port               string
+	SlackToken         string
+	SlackSigningSecret string
+	DatabaseUrl        string
+}
+
+func setupWebServer(config Config, dbpool *pgxpool.Pool, slackClient *slack.Client) *echo.Echo {
 	app := echo.New()
 	app.Renderer = view.EchoTemplate
 	app.Use(middleware.Logger())
 	app.Pre(middleware.AddTrailingSlashWithConfig(middleware.TrailingSlashConfig{RedirectCode: http.StatusTemporaryRedirect}))
 	phraseHandler := handler.PhraseHandler{Pool: dbpool}
-	slackHandler := handler.SlackHandler{Pool: dbpool, Client: client, SigningSecret: slackSigningSecret}
+	slackHandler := handler.SlackHandler{Pool: dbpool, Client: slackClient, SigningSecret: config.SlackSigningSecret}
 	phraseGroup := app.Group("/phrase")
 	phraseGroup.Use(middleware.BasicAuth(func(username, password string, _ echo.Context) (bool, error) {
-		if subtle.ConstantTimeCompare([]byte(username), []byte(basicAuthUser)) == 1 &&
-			subtle.ConstantTimeCompare([]byte(password), []byte(basicAuthPass)) == 1 {
+		if subtle.ConstantTimeCompare([]byte(username), []byte(config.BasicAuthUser)) == 1 &&
+			subtle.ConstantTimeCompare([]byte(password), []byte(config.BasicAuthPass)) == 1 {
 			return true, nil
 		}
 		return false, nil
@@ -86,5 +90,30 @@ func main() {
 	phraseGroup.POST("/", phraseHandler.HandleCreatePhrase)
 	phraseGroup.POST("/:id/delete/", phraseHandler.HandleDeletePhrase)
 	app.POST("/insult/", slackHandler.HandleInsultJira)
-	app.Logger.Fatal(app.Start(":" + port))
+	return app
+}
+
+func main() {
+	log.Println("Starting phrase bot")
+	godotenv.Load()
+
+	config := Config{
+		BasicAuthUser:      os.Getenv("BASIC_AUTH_USER"),
+		BasicAuthPass:      os.Getenv("BASIC_AUTH_PASS"),
+		Port:               os.Getenv("PORT"),
+		SlackToken:         os.Getenv("SLACK_TOKEN"),
+		SlackSigningSecret: os.Getenv("SLACK_SIGNING_SECRET"),
+		DatabaseUrl:        os.Getenv("DATABASE_URL"),
+	}
+
+	slackClient := slack.New(config.SlackToken, slack.OptionDebug(true))
+
+	dbpool, err := setupDB(config)
+	if err != nil {
+		log.Fatal("Unable to connect with database", err)
+		return
+	}
+
+	app := setupWebServer(config, dbpool, slackClient)
+	app.Logger.Fatal(app.Start(":" + config.Port))
 }
