@@ -9,7 +9,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 )
 
 type PhraseHandler struct {
@@ -19,8 +18,7 @@ type PhraseHandler struct {
 func (h PhraseHandler) HandlePhraseShow(c echo.Context) error {
 	phrases, err := data.GetAllPhrases(h.Pool)
 	if err != nil {
-		log.Errorf("Database error: %q", err)
-		return c.String(http.StatusInternalServerError, "Internal server error")
+		return err
 	}
 	return c.Render(http.StatusOK, "show_phrases", view.ShowPhrases{PhraseError: "", Phrases: *phrases})
 }
@@ -30,8 +28,7 @@ func (h PhraseHandler) HandleCreatePhrase(c echo.Context) error {
 	if len(strings.TrimSpace(formPhrase)) == 0 {
 		phrases, err := data.GetAllPhrases(h.Pool)
 		if err != nil {
-			log.Errorf("Database error: %q", err)
-			return c.String(http.StatusInternalServerError, "Internal server error")
+			return err
 		}
 		return c.Render(http.StatusOK, "show_phrases", view.ShowPhrases{PhraseError: "Phrase cannot be blank", Phrases: *phrases})
 	}
@@ -45,11 +42,11 @@ func (h PhraseHandler) HandleCreatePhrase(c echo.Context) error {
 func (h PhraseHandler) HandleDeletePhrase(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return c.String(http.StatusInternalServerError, "Internal server error")
+		return err
 	}
 	err = data.DeletePhrase(h.Pool, id)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, "Internal server error")
+		return err
 	}
 	return c.Redirect(http.StatusFound, "/phrase")
 }

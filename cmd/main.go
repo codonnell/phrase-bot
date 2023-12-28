@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"phrase_bot/handler"
 	"phrase_bot/view"
@@ -21,6 +22,7 @@ func main() {
 	godotenv.Load()
 	port := os.Getenv("PORT")
 	slackToken := os.Getenv("SLACK_TOKEN")
+	slackSigningSecret := os.Getenv("SLACK_SIGNING_SECRET")
 	client := slack.New(slackToken, slack.OptionDebug(true))
 	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -56,8 +58,9 @@ func main() {
 	app := echo.New()
 	app.Renderer = view.EchoTemplate
 	app.Use(middleware.Logger())
+	app.Pre(middleware.AddTrailingSlashWithConfig(middleware.TrailingSlashConfig{RedirectCode: http.StatusTemporaryRedirect}))
 	phraseHandler := handler.PhraseHandler{Pool: dbpool}
-	slackHandler := handler.SlackHandler{Pool: dbpool, Client: client}
+	slackHandler := handler.SlackHandler{Pool: dbpool, Client: client, SigningSecret: slackSigningSecret}
 	phraseGroup := app.Group("/phrase")
 	phraseGroup.Use(middleware.BasicAuth(func(username, password string, _ echo.Context) (bool, error) {
 		if subtle.ConstantTimeCompare([]byte(username), []byte("pf2")) == 1 &&
@@ -66,9 +69,9 @@ func main() {
 		}
 		return false, nil
 	}))
-	phraseGroup.GET("", phraseHandler.HandlePhraseShow)
-	phraseGroup.POST("", phraseHandler.HandleCreatePhrase)
-	phraseGroup.POST(":id/delete", phraseHandler.HandleDeletePhrase)
-	app.POST("/insult", slackHandler.HandleInsultJira)
+	phraseGroup.GET("/", phraseHandler.HandlePhraseShow)
+	phraseGroup.POST("/", phraseHandler.HandleCreatePhrase)
+	phraseGroup.POST("/:id/delete/", phraseHandler.HandleDeletePhrase)
+	app.POST("/insult/", slackHandler.HandleInsultJira)
 	app.Logger.Fatal(app.Start(":" + port))
 }
