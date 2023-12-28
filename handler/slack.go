@@ -1,9 +1,9 @@
 package handler
 
 import (
+	"io"
 	"net/http"
 	"phrase_bot/data"
-	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
@@ -22,16 +22,20 @@ type Response struct {
 }
 
 func (h SlackHandler) HandleInsultJira(c echo.Context) error {
-	// log.Println(h.SigningSecret)
-	// sv, err := slack.NewSecretsVerifier(c.Request().Header, h.SigningSecret)
-	// if err != nil {
-	// 	return err
-	// }
-	// err = sv.Ensure()
-	// if err != nil {
-	// 	return err
-	// }
-	if strings.TrimSpace(c.FormValue("text")) != "insult jira" {
+	sv, err := slack.NewSecretsVerifier(c.Request().Header, h.SigningSecret)
+	if err != nil {
+		return err
+	}
+	c.Request().Body = io.NopCloser(io.TeeReader(c.Request().Body, &sv))
+	s, err := slack.SlashCommandParse(c.Request())
+	if err != nil {
+		return err
+	}
+	err = sv.Ensure()
+	if err != nil {
+		return err
+	}
+	if s.Text != "insult jira" && s.Command != "/pf2" {
 		response := &Response{Text: "make sure you type \"insult jira\" after the /pf2 command"}
 		return c.JSON(http.StatusOK, response)
 	}
