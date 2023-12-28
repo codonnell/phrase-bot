@@ -26,12 +26,17 @@ func GetAllPhrases(pool *pgxpool.Pool) (*[]types.Phrase, error) {
 	return &phrases, nil
 }
 
-func CreatePhrase(pool *pgxpool.Pool, phrase string) (*types.Phrase, error) {
+func CreatePhrase(pool *pgxpool.Pool, phrase string) (types.Phrase, error) {
 	row := pool.QueryRow(context.Background(), "insert into phrase (phrase) values ($1) returning id", phrase)
 	var id int
 	err := row.Scan(&id)
 	if err != nil {
-		return nil, err
+		return types.Phrase{}, err
 	}
-	return &types.Phrase{Id: id, Phrase: phrase}, nil
+	return types.Phrase{Id: id, Phrase: phrase}, nil
+}
+
+func DeletePhrase(pool *pgxpool.Pool, id int) error {
+	_, err := pool.Exec(context.Background(), "delete from phrase where id = $1", id)
+	return err
 }

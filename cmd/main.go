@@ -59,8 +59,10 @@ func main() {
 		}
 		return false, nil
 	}))
+	app.Use(middleware.Logger())
 	phraseHandler := handler.PhraseHandler{Pool: dbpool}
 	app.GET("/phrase", phraseHandler.HandlePhraseShow)
 	app.POST("/phrase", phraseHandler.HandleCreatePhrase)
+	app.POST("/phrase/:id/delete", phraseHandler.HandleDeletePhrase)
 	app.Logger.Fatal(app.Start(":" + port))
 }

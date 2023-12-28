@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"phrase_bot/data"
 	"phrase_bot/view"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -37,6 +38,18 @@ func (h PhraseHandler) HandleCreatePhrase(c echo.Context) error {
 	_, err := data.CreatePhrase(h.Pool, formPhrase)
 	if err != nil {
 		return err
+	}
+	return c.Redirect(http.StatusFound, "/phrase")
+}
+
+func (h PhraseHandler) HandleDeletePhrase(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Internal server error")
+	}
+	err = data.DeletePhrase(h.Pool, id)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Internal server error")
 	}
 	return c.Redirect(http.StatusFound, "/phrase")
 }

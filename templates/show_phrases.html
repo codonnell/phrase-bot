@@ -34,7 +34,12 @@
         <div class="block">
           <ul>
             {{ range .Phrases }}
-            <li>{{ .Phrase }}</li>
+            <li class="is-flex is-flex-direction-row is-justify-context-flex-start is-align-items-center">
+              <form method="POST" action="/phrase/{{ .Id }}/delete">
+                <button class="button is-small is-outlined is-danger">x</button>
+              </form>
+              <span class="ml-1">{{ .Phrase }}</span>
+            </li>
             {{ end }}
           </ul>
         </div>
