@@ -13,12 +13,15 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/slack-go/slack"
 )
 
 func main() {
 	log.Println("Starting phrase bot")
 	godotenv.Load()
 	port := os.Getenv("PORT")
+	slackToken := os.Getenv("SLACK_TOKEN")
+	client := slack.New(slackToken, slack.OptionDebug(true))
 	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to create dbpoolection pool: %v\n", err)
@@ -52,17 +55,20 @@ func main() {
 
 	app := echo.New()
 	app.Renderer = view.EchoTemplate
-	app.Use(middleware.BasicAuth(func(username, password string, _ echo.Context) (bool, error) {
+	app.Use(middleware.Logger())
+	phraseHandler := handler.PhraseHandler{Pool: dbpool}
+	slackHandler := handler.SlackHandler{Pool: dbpool, Client: client}
+	phraseGroup := app.Group("/phrase")
+	phraseGroup.Use(middleware.BasicAuth(func(username, password string, _ echo.Context) (bool, error) {
 		if subtle.ConstantTimeCompare([]byte(username), []byte("pf2")) == 1 &&
 			subtle.ConstantTimeCompare([]byte(password), []byte("rulez")) == 1 {
 			return true, nil
 		}
 		return false, nil
 	}))
-	app.Use(middleware.Logger())
-	phraseHandler := handler.PhraseHandler{Pool: dbpool}
-	app.GET("/phrase", phraseHandler.HandlePhraseShow)
-	app.POST("/phrase", phraseHandler.HandleCreatePhrase)
-	app.POST("/phrase/:id/delete", phraseHandler.HandleDeletePhrase)
+	phraseGroup.GET("", phraseHandler.HandlePhraseShow)
+	phraseGroup.POST("", phraseHandler.HandleCreatePhrase)
+	phraseGroup.POST(":id/delete", phraseHandler.HandleDeletePhrase)
+	app.POST("/insult", slackHandler.HandleInsultJira)
 	app.Logger.Fatal(app.Start(":" + port))
 }

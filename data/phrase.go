@@ -26,6 +26,18 @@ func GetAllPhrases(pool *pgxpool.Pool) (*[]types.Phrase, error) {
 	return &phrases, nil
 }
 
+func GetRandomPhrase(pool *pgxpool.Pool) (types.Phrase, error) {
+	// This will be slow if the table gets really big, which it probably won't
+	row := pool.QueryRow(context.Background(), "select id, phrase from phrase order by random() limit 1")
+	var id int
+	var phrase string
+	err := row.Scan(&id, &phrase)
+	if err != nil {
+		return types.Phrase{}, err
+	}
+	return types.Phrase{Id: id, Phrase: phrase}, nil
+}
+
 func CreatePhrase(pool *pgxpool.Pool, phrase string) (types.Phrase, error) {
 	row := pool.QueryRow(context.Background(), "insert into phrase (phrase) values ($1) returning id", phrase)
 	var id int
