@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Phrases</title>
+    <script src="https://kit.fontawesome.com/9f53493378.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
   </head>
   <body>
@@ -20,7 +21,7 @@
                 <input class="input" type="search" name="search" placeholder="Search" value="{{ .Search }}">
               </div>
               <div class="control">
-                <button class="button is-info">Search</button>
+                <button class="button is-info" tabindex="-1">Search</button>
               </div>
             </div>
           </form>
@@ -33,7 +34,7 @@
               <p class="help is-danger">{{ .PhraseError }}</p>
               {{ end }}
               <div class="control">
-                <button class="button is-primary">Create</button>
+                <button class="button is-primary" tabindex="-1">Create</button>
               </div>
             </div>
           </form>
@@ -43,7 +44,11 @@
             {{ range .Phrases }}
             <li class="is-flex is-flex-direction-row is-justify-context-flex-start is-align-items-center">
               <form method="POST" action="/phrase/{{ .Id }}/delete">
-                <button class="button is-small is-outlined is-danger">x</button>
+                <button class="button is-small is-danger is-inverted">
+                  <span class="icon is-small">
+                    <i class="fa-solid fa-xmark"></i>
+                  </span>
+                </button>
               </form>
               <span class="ml-1">{{ .Phrase }}</span>
             </li>
