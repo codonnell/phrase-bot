@@ -88,6 +88,7 @@ func main() {
 		log.Fatal("Unable to connect with database", err)
 		return
 	}
+	defer dbpool.Close()
 
 	app := setupWebServer(config, dbpool, slackClient)
 	app.Logger.Fatal(app.Start(":" + config.Port))
