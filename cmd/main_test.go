@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -20,7 +22,8 @@ import (
 
 type MainTestSuite struct {
 	suite.Suite
-	DB data.DB
+	DB   data.DB
+	Pool *pgxpool.Pool
 }
 
 func (suite *MainTestSuite) TestHandleDeletePhrase() {
@@ -138,7 +141,7 @@ func (suite *MainTestSuite) TestHandlePhraseShowAll() {
 	}
 }
 
-func (suite *MainTestSuite) SetupTest() {
+func (suite *MainTestSuite) SetupSuite() {
 	config := Config{
 		DatabaseUrl: os.Getenv("DATABASE_URL"),
 	}
@@ -154,7 +157,20 @@ func (suite *MainTestSuite) SetupTest() {
 	if err != nil {
 		suite.T().Fatal("failed to insert fixture data", err)
 	}
-	suite.DB = db
+	suite.Pool = db
+}
+
+func (suite *MainTestSuite) SetupTest() {
+	tx, err := suite.Pool.Begin(context.Background())
+	if err != nil {
+		suite.T().Fatal("failed to insert fixture data", err)
+	}
+	suite.DB = tx
+}
+
+func (suite *MainTestSuite) TearDownTest() {
+	tx := suite.DB.(pgx.Tx)
+	tx.Rollback(context.Background())
 }
 
 func TestMainTestSuite(t *testing.T) {
