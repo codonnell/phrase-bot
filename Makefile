@@ -3,3 +3,6 @@ run:
 
 watch:
 	@air --build.cmd "go build cmd/main.go" --build.bin "./main"
+
+test:
+	@go test -c ./cmd && ./cmd.test

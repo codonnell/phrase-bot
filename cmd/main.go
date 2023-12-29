@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"phrase_bot/data"
 	"phrase_bot/handler"
 	"phrase_bot/view"
 
@@ -35,30 +34,6 @@ func setupDB(config Config) (*pgxpool.Pool, error) {
 		log.Fatal("create index error", err)
 		return nil, err
 	}
-	_, err = dbpool.Exec(context.Background(), "delete from phrase")
-	if err != nil {
-		log.Fatal("Deletion error", err)
-		return nil, err
-	}
-	_, err = dbpool.Exec(context.Background(), "insert into phrase (phrase) values ($1)", "JIRA is bad")
-	if err != nil {
-		log.Fatal("Insertion error", err)
-		return nil, err
-	}
-	_, err = dbpool.Exec(context.Background(), "insert into phrase (phrase) values ($1)", "not matching")
-	if err != nil {
-		log.Fatal("Insertion error", err)
-		return nil, err
-	}
-	phrases, err := data.SearchPhrases(dbpool, "JIRA")
-	if err != nil {
-		log.Fatal("Query error", err)
-		return nil, err
-	}
-	for _, phrase := range *phrases {
-		log.Println("phrase:", phrase.Id, "phrase:", phrase.Phrase)
-	}
-	log.Println("All done!")
 	return dbpool, nil
 }
 
@@ -76,8 +51,8 @@ func setupWebServer(config Config, dbpool *pgxpool.Pool, slackClient *slack.Clie
 	app.Renderer = view.EchoTemplate
 	app.Use(middleware.Logger())
 	app.Pre(middleware.AddTrailingSlashWithConfig(middleware.TrailingSlashConfig{RedirectCode: http.StatusTemporaryRedirect}))
-	phraseHandler := handler.PhraseHandler{Pool: dbpool}
-	slackHandler := handler.SlackHandler{Pool: dbpool, Client: slackClient, SigningSecret: config.SlackSigningSecret}
+	phraseHandler := handler.PhraseHandler{DB: dbpool}
+	slackHandler := handler.SlackHandler{DB: dbpool, Client: slackClient, SigningSecret: config.SlackSigningSecret}
 	phraseGroup := app.Group("/phrase")
 	phraseGroup.Use(middleware.BasicAuth(func(username, password string, _ echo.Context) (bool, error) {
 		if subtle.ConstantTimeCompare([]byte(username), []byte(config.BasicAuthUser)) == 1 &&

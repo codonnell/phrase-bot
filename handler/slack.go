@@ -5,13 +5,12 @@ import (
 	"net/http"
 	"phrase_bot/data"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/slack-go/slack"
 )
 
 type SlackHandler struct {
-	*pgxpool.Pool
+	data.DB
 	*slack.Client
 	SigningSecret string
 }
@@ -39,7 +38,7 @@ func (h SlackHandler) HandleInsultJira(c echo.Context) error {
 		response := &Response{Text: "make sure you type \"insult jira\" after the /pf2 command"}
 		return c.JSON(http.StatusOK, response)
 	}
-	phrase, err := data.GetRandomPhrase(h.Pool)
+	phrase, err := data.GetRandomPhrase(h.DB)
 	if err != nil {
 		return err
 	}
